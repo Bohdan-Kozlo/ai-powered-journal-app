@@ -1,6 +1,7 @@
 import { EntryCard } from "@/components/journal/entry-card";
 import { NewEntryCard } from "@/components/journal/new-entry-card";
 import { Container } from "@/components/ui/container";
+import Link from "next/link";
 
 // Mock data for entries
 const mockEntries = [
@@ -54,7 +55,9 @@ export default function JournalPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <NewEntryCard />
+            <Link href="/journal/new">
+              <NewEntryCard />
+            </Link>
 
             {mockEntries.map((entry) => (
               <EntryCard
