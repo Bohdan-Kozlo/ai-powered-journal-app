@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
-import { BookOpen, Home, LineChart, Settings, User } from "lucide-react";
+import { Menu, X, BookOpen, Home, LineChart, User } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type SidebarItemProps = {
   icon: React.ReactNode;
@@ -31,6 +31,30 @@ function SidebarItem({ icon, label, href, active }: SidebarItemProps) {
 
 export function MobileSidebar() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  const routes = [
+    {
+      icon: <Home className="h-5 w-5" />,
+      label: "Dashboard",
+      href: "/dashboard",
+    },
+    {
+      icon: <BookOpen className="h-5 w-5" />,
+      label: "Journal",
+      href: "/journal",
+    },
+    {
+      icon: <LineChart className="h-5 w-5" />,
+      label: "Analytics",
+      href: "/analytics",
+    },
+    {
+      icon: <User className="h-5 w-5" />,
+      label: "Profile",
+      href: "/user-profile",
+    },
+  ];
 
   return (
     <>
@@ -64,32 +88,15 @@ export function MobileSidebar() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <SidebarItem
-                icon={<Home className="h-5 w-5" />}
-                label="Dashboard"
-                href="/dashboard"
-              />
-              <SidebarItem
-                icon={<BookOpen className="h-5 w-5" />}
-                label="Journal"
-                href="/journal"
-                active={true}
-              />
-              <SidebarItem
-                icon={<LineChart className="h-5 w-5" />}
-                label="Analytics"
-                href="/analytics"
-              />
-              <SidebarItem
-                icon={<User className="h-5 w-5" />}
-                label="Profile"
-                href="/profile"
-              />
-              <SidebarItem
-                icon={<Settings className="h-5 w-5" />}
-                label="Settings"
-                href="/settings"
-              />
+              {routes.map((route) => (
+                <SidebarItem
+                  key={route.href}
+                  icon={route.icon}
+                  label={route.label}
+                  href={route.href}
+                  active={pathname.includes(route.href)}
+                />
+              ))}
             </div>
           </div>
         </div>
