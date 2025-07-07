@@ -15,7 +15,7 @@ export default function Home() {
           description="Your AI-powered personal journal for daily reflections, mood analysis, and intelligent insights based on your entries."
         >
           <Button size="lg" asChild>
-            <Link href="/dashboard" className="gap-2">
+            <Link href="/journal" className="gap-2">
               <PenLine className="h-4 w-4" />
               Start Journaling
             </Link>
