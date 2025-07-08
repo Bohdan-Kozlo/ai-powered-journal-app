@@ -9,7 +9,6 @@ import {
   JournalAnalysisData,
 } from "@/components/journal/journal-analysis";
 
-// Mock data for JournalEntry based on your schema
 const mockJournalEntry = {
   id: "entry-123",
   content: `Today was incredibly productive. I managed to complete the main features for our project ahead of schedule.
@@ -26,7 +25,6 @@ Tomorrow I plan to tackle the remaining tasks for this sprint and maybe start lo
   updatedAt: new Date(2025, 6, 7, 15, 30), // July 7, 2025, 15:30
 };
 
-// Mock data for JournalAnalysis based on your schema
 const mockJournalAnalysis: JournalAnalysisData = {
   id: "analysis-789",
   summary:
@@ -46,7 +44,6 @@ export default function JournalEntryPage() {
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveContent = (newContent: string) => {
-    // Here you would typically save the content to your backend
     setContent(newContent);
     console.log("Saving content:", newContent);
   };

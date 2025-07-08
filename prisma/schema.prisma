@@ -36,15 +36,18 @@ model JournalEntry {
 }
 
 model JournalAnalysis {
-  id        String       @id @default(uuid())
-  summary   String       @db.Text
-  mood      Mood
-  negative  Boolean
-  color     String
-  entryId   String       @unique
-  entry     JournalEntry @relation(fields: [entryId], references: [id])
-  createdAt DateTime     @default(now())
-  updareAt  DateTime     @updatedAt
+  id                 String       @id @default(uuid())
+  summary            String       @db.Text
+  mood               Mood
+  negative           Boolean
+  moodScore          Int
+  positivePercentage Int
+  neutralPercentage  Int
+  negativePercentage Int
+  entryId            String       @unique
+  entry              JournalEntry @relation(fields: [entryId], references: [id])
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 }
 
 enum Mood {

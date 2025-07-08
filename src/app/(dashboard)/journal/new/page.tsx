@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Container } from "@/components/ui/container";
 import {
   Card,
@@ -12,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, SaveIcon, RotateCcw } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { handleCreateJournalEntry } from "@/server-actions/createJournalEntry";
+import { toast } from "react-hot-toast";
 
 export default function NewJournalPage() {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
   const today = new Date();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,18 +29,16 @@ export default function NewJournalPage() {
     setIsSaving(true);
 
     try {
-      // Here you would send the data to your backend
-      console.log("Saving journal entry:", { content, date: today });
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Success message or redirect
-      alert("Journal entry saved successfully!");
-      // In a real app, you might redirect: router.push('/journal');
+      const res = await handleCreateJournalEntry({ content });
+      if (res.success && res.data?.entryId) {
+        router.push(`/journal/${res.data.entryId}`);
+        toast.success("Journal entry saved successfully!");
+        return;
+      }
+      toast.error(res.message || "Failed to save journal entry.");
     } catch (error) {
       console.error("Error saving journal entry:", error);
-      alert("Failed to save journal entry. Please try again.");
+      toast.error("Failed to save journal entry. Please try again.");
     } finally {
       setIsSaving(false);
     }
