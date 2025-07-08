@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { toast } from "react-hot-toast";
 
 export interface EmotionData {
   positivePercentage: number;
@@ -28,20 +29,28 @@ export interface JournalAnalysisData {
 
 interface JournalAnalysisProps {
   analysis: JournalAnalysisData;
-  onRequestAnalysis: () => void;
+  entryId: string;
 }
 
 export function JournalAnalysis({
   analysis,
-  onRequestAnalysis,
 }: JournalAnalysisProps) {
   const [isAnalysisRequested, setIsAnalysisRequested] = useState(false);
 
-  // Генеруємо колір для настрою на основі значень
   const getMoodColor = (mood: string, negative: boolean) => {
-    if (mood === "POSITIVE" && !negative) return "#4ade80"; // зелений
-    if (mood === "NEGATIVE" || negative) return "#f87171"; // червоний
-    return "#94a3b8"; // сірий для нейтрального
+    switch (mood.toUpperCase()) {
+      case "HAPPY":
+      case "EXCITED":
+        return "#22c55e"; // green
+      case "CALM":
+      case "NEUTRAL":
+        return "#94a3b8"; // gray
+      case "SAD":
+      case "ANGRY":
+        return "#ef4444"; // red
+      default:
+        return negative ? "#ef4444" : "#22c55e";
+    }
   };
 
   const moodColor = getMoodColor(analysis.mood, analysis.negative);
@@ -50,14 +59,17 @@ export function JournalAnalysis({
     analysis.mood.charAt(0).toUpperCase() +
     analysis.mood.slice(1).toLowerCase();
 
-  const handleAnalysisRequest = () => {
+  const handleAnalysisRequest = async () => {
     setIsAnalysisRequested(true);
-    onRequestAnalysis();
 
-    // After 2 seconds, we'll simulate getting a response back
-    setTimeout(() => {
+    try {
+     
+    } catch (error) {
+      console.error("Error requesting analysis:", error);
+      toast.error("Failed to analyze entry. Please try again.");
+    } finally {
       setIsAnalysisRequested(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -173,7 +185,7 @@ export function JournalAnalysis({
               disabled={isAnalysisRequested}
             >
               <Zap className="h-4 w-4" />
-              {isAnalysisRequested ? "Analyzing..." : "Send for Analysis"}
+              {isAnalysisRequested ? "Re-analyzing..." : "Re-analyze Entry"}
             </Button>
           </div>
         </div>

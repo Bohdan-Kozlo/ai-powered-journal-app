@@ -1,6 +1,7 @@
 import { getUserByClerkId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { JournalAnalysisResult } from "@/lib/llm";
 
 export async function getJournalEntries() {
   try {
@@ -74,6 +75,31 @@ export async function journalEntryById(entryId: string) {
     return entry;
   } catch (error) {
     console.error("Error fetching journal entry by ID:", error);
+    return null;
+  }
+}
+
+export async function createJournalAnalysis(
+  entryId: string,
+  analysisData: JournalAnalysisResult
+) {
+  try {
+    const analysis = await prisma.journalAnalysis.create({
+      data: {
+        entryId,
+        summary: analysisData.summary,
+        mood: analysisData.mood,
+        negative: analysisData.negative,
+        moodScore: analysisData.moodScore,
+        positivePercentage: analysisData.positivePercentage,
+        neutralPercentage: analysisData.neutralPercentage,
+        negativePercentage: analysisData.negativePercentage,
+      },
+    });
+
+    return analysis;
+  } catch (error) {
+    console.error("Error creating journal analysis:", error);
     return null;
   }
 }

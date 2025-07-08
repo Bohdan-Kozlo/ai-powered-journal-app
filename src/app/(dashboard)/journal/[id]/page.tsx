@@ -9,6 +9,7 @@ import {
   JournalAnalysisData,
 } from "@/components/journal/journal-analysis";
 
+// Mock data for JournalEntry based on your schema
 const mockJournalEntry = {
   id: "entry-123",
   content: `Today was incredibly productive. I managed to complete the main features for our project ahead of schedule.
@@ -44,6 +45,7 @@ export default function JournalEntryPage() {
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveContent = (newContent: string) => {
+    // Here you would typically save the content to your backend
     setContent(newContent);
     console.log("Saving content:", newContent);
   };
@@ -92,10 +94,7 @@ export default function JournalEntryPage() {
 
         {/* Right side - Journal Analysis */}
         <div className="w-full md:w-1/3 space-y-6">
-          <JournalAnalysis
-            analysis={mockJournalAnalysis}
-            onRequestAnalysis={handleRequestAnalysis}
-          />
+          <JournalAnalysis analysis={undefined} entryId={""} } />
         </div>
       </div>
     </Container>
