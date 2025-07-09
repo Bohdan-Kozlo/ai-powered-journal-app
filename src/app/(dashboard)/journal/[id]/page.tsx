@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Container } from "@/components/ui/container";
 import { JournalHeader } from "@/components/journal/journal-header";
 import { JournalContent } from "@/components/journal/journal-content";
@@ -8,64 +9,126 @@ import {
   JournalAnalysis,
   JournalAnalysisData,
 } from "@/components/journal/journal-analysis";
+import { getJournalEntry } from "@/server-actions/getJournalEntry";
+import { updateJournalEntry } from "@/server-actions/updateJournalEntry";
+import { deleteJournalEntry } from "@/server-actions/deleteJournalEntry";
+import { analyzeJournalEntryAction } from "@/server-actions/analyzeJournalEntry";
+import { toast } from "react-hot-toast";
 
-// Mock data for JournalEntry based on your schema
-const mockJournalEntry = {
-  id: "entry-123",
-  content: `Today was incredibly productive. I managed to complete the main features for our project ahead of schedule.
-  
-The team meeting went well, and everyone seemed pleased with the progress we've made this sprint. I felt confident presenting my part and received positive feedback from both the project manager and other developers.
-
-I've been implementing the new authentication system, which was challenging at first but became more straightforward once I understood the documentation better. Still need to add some edge case handling tomorrow, but the core functionality is working perfectly.
-
-After work, I went for a 5km run to clear my head. It's amazing how physical exercise can reset your mental state. I'm feeling much more balanced now than I was this morning when I was slightly anxious about the presentation.
-
-Tomorrow I plan to tackle the remaining tasks for this sprint and maybe start looking at the backlog for the next one. I'm feeling optimistic about our timeline and confident in the quality of what we're building.`,
-  userId: "user-456",
-  createdAt: new Date(2025, 6, 7), // July 7, 2025
-  updatedAt: new Date(2025, 6, 7, 15, 30), // July 7, 2025, 15:30
-};
-
-const mockJournalAnalysis: JournalAnalysisData = {
-  id: "analysis-789",
-  summary:
-    "This journal entry shows a productive workday with positive emotions. The author completed project features ahead of schedule and received positive feedback from their team. They also mention exercise helping their mental state and feeling optimistic about future tasks.",
-  mood: "NEGATIVE", // or "POSITIVE" or "NEUTRAL"
-  negative: true,
-  entryId: "entry-123",
-  createdAt: new Date(2025, 6, 7, 15, 35), // July 7, 2025, 15:35
-  moodScore: 30, // Від 0 до 100
-  positivePercentage: 5,
-  neutralPercentage: 20,
-  negativePercentage: 100,
-};
+interface JournalEntry {
+  id: string;
+  content: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  journalAnalysis?: JournalAnalysisData | null;
+}
 
 export default function JournalEntryPage() {
-  const [content, setContent] = useState(mockJournalEntry.content);
+  const params = useParams();
+  const router = useRouter();
+  const entryId = params?.id as string;
+
+  const [entry, setEntry] = useState<JournalEntry | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSaveContent = (newContent: string) => {
-    // Here you would typically save the content to your backend
-    setContent(newContent);
-    console.log("Saving content:", newContent);
+  // Fetch journal entry on component mount
+  useEffect(() => {
+    const fetchEntry = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const result = await getJournalEntry(entryId);
+
+        if (result.success && result.data) {
+          const entryData = result.data as unknown as JournalEntry;
+          setEntry(entryData);
+
+          // Auto-analyze if no analysis exists
+          if (
+            !entryData.journalAnalysis &&
+            entryData.content.trim().length > 0
+          ) {
+            setIsAnalyzing(true);
+            try {
+              const analysisResult = await analyzeJournalEntryAction(
+                entryId,
+                entryData.content
+              );
+              if (analysisResult.success && analysisResult.data) {
+                const analysisData =
+                  analysisResult.data as unknown as JournalAnalysisData;
+                setEntry((prev) =>
+                  prev ? { ...prev, journalAnalysis: analysisData } : null
+                );
+                toast.success("Entry analyzed successfully!");
+              }
+            } catch (error) {
+              console.error("Auto-analysis failed:", error);
+              toast.error("Failed to analyze entry");
+            } finally {
+              setIsAnalyzing(false);
+            }
+          }
+        } else {
+          setError(result.message || "Failed to load journal entry");
+          toast.error(result.message || "Failed to load journal entry");
+        }
+      } catch (error) {
+        console.error("Error fetching journal entry:", error);
+        setError("Failed to load journal entry");
+        toast.error("Failed to load journal entry");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (entryId) {
+      fetchEntry();
+    }
+  }, [entryId]);
+
+  const handleSaveContent = async (newContent: string) => {
+    try {
+      const result = await updateJournalEntry(entryId, newContent);
+
+      if (result.success) {
+        setEntry((prev) =>
+          prev ? { ...prev, content: newContent, updatedAt: new Date() } : null
+        );
+        toast.success("Entry updated successfully!");
+      } else {
+        toast.error(result.message || "Failed to update entry");
+      }
+    } catch (error) {
+      console.error("Error updating entry:", error);
+      toast.error("Failed to update entry");
+    }
   };
 
-  const handleRequestAnalysis = () => {
-    // Here you would typically send the content for analysis
-    console.log("Requesting analysis for content:", content);
-  };
-
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (
       confirm(
         "Are you sure you want to delete this journal entry? This action cannot be undone."
       )
     ) {
-      // Here you would typically delete the entry from your backend
-      console.log("Deleting entry:", mockJournalEntry.id);
-      // Redirect to journal list page
-      alert("Entry deleted successfully!");
-      // In a real application, you would use router.push('/journal') or similar
+      try {
+        const result = await deleteJournalEntry(entryId);
+
+        if (result.success) {
+          toast.success("Entry deleted successfully!");
+          router.push("/journal");
+        } else {
+          toast.error(result.message || "Failed to delete entry");
+        }
+      } catch (error) {
+        console.error("Error deleting entry:", error);
+        toast.error("Failed to delete entry");
+      }
     }
   };
 
@@ -73,28 +136,81 @@ export default function JournalEntryPage() {
     setIsEditing(true);
   };
 
+  const handleAnalysisComplete = (analysis: JournalAnalysisData) => {
+    setEntry((prev) => (prev ? { ...prev, journalAnalysis: analysis } : null));
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Container className="py-8">
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="w-full md:w-2/3 space-y-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded mb-4"></div>
+              <div className="h-64 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+          <div className="w-full md:w-1/3 space-y-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded mb-4"></div>
+              <div className="h-32 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </Container>
+    );
+  }
+
+  // Error state
+  if (error || !entry) {
+    return (
+      <Container className="py-8">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Entry Not Found</h2>
+          <p className="text-muted-foreground mb-4">
+            {error ||
+              "The journal entry you're looking for doesn't exist or you don't have permission to view it."}
+          </p>
+          <button
+            onClick={() => router.push("/journal")}
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            Return to Journal
+          </button>
+        </div>
+      </Container>
+    );
+  }
+
   return (
     <Container className="py-8">
       <div className="flex flex-col md:flex-row gap-6">
         {/* Left side - Journal Entry */}
         <div className="w-full md:w-2/3 space-y-6">
           <JournalHeader
-            createdAt={mockJournalEntry.createdAt}
+            createdAt={entry.createdAt}
             onDelete={handleDelete}
             onEdit={handleEdit}
             isEditing={isEditing}
           />
 
           <JournalContent
-            content={content}
-            updatedAt={mockJournalEntry.updatedAt}
+            content={entry.content}
+            updatedAt={entry.updatedAt}
             onSave={handleSaveContent}
           />
         </div>
 
         {/* Right side - Journal Analysis */}
         <div className="w-full md:w-1/3 space-y-6">
-          <JournalAnalysis analysis={undefined} entryId={""} } />
+          <JournalAnalysis
+            analysis={entry.journalAnalysis || null}
+            entryId={entryId}
+            content={entry.content}
+            isLoading={isAnalyzing}
+            onAnalysisComplete={handleAnalysisComplete}
+          />
         </div>
       </div>
     </Container>

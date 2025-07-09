@@ -84,6 +84,26 @@ export async function createJournalAnalysis(
   analysisData: JournalAnalysisResult
 ) {
   try {
+    const existing = await prisma.journalAnalysis.findUnique({
+      where: { entryId },
+    });
+
+    if (existing) {
+      const updated = await prisma.journalAnalysis.update({
+        where: { entryId },
+        data: {
+          summary: analysisData.summary,
+          mood: analysisData.mood,
+          negative: analysisData.negative,
+          moodScore: analysisData.moodScore,
+          positivePercentage: analysisData.positivePercentage,
+          neutralPercentage: analysisData.neutralPercentage,
+          negativePercentage: analysisData.negativePercentage,
+        },
+      });
+      return updated;
+    }
+
     const analysis = await prisma.journalAnalysis.create({
       data: {
         entryId,

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 
+import { analyzeJournalEntryAction } from "@/server-actions/analyzeJournalEntry";
+
 export interface EmotionData {
   positivePercentage: number;
   neutralPercentage: number;
@@ -28,12 +30,19 @@ export interface JournalAnalysisData {
 }
 
 interface JournalAnalysisProps {
-  analysis: JournalAnalysisData;
+  analysis: JournalAnalysisData | null;
   entryId: string;
+  content: string;
+  isLoading?: boolean;
+  onAnalysisComplete?: (analysis: JournalAnalysisData) => void;
 }
 
 export function JournalAnalysis({
   analysis,
+  entryId,
+  content,
+  isLoading = false,
+  onAnalysisComplete,
 }: JournalAnalysisProps) {
   const [isAnalysisRequested, setIsAnalysisRequested] = useState(false);
 
@@ -53,17 +62,24 @@ export function JournalAnalysis({
     }
   };
 
-  const moodColor = getMoodColor(analysis.mood, analysis.negative);
-
-  const moodLabel =
-    analysis.mood.charAt(0).toUpperCase() +
-    analysis.mood.slice(1).toLowerCase();
-
   const handleAnalysisRequest = async () => {
+    if (!content || content.trim().length === 0) {
+      toast.error("Cannot analyze empty content");
+      return;
+    }
+
     setIsAnalysisRequested(true);
 
     try {
-     
+      const result = await analyzeJournalEntryAction(entryId, content);
+
+      if (result.success && result.data) {
+        toast.success("Analysis completed successfully!");
+        const analysisData = result.data as unknown as JournalAnalysisData;
+        onAnalysisComplete?.(analysisData);
+      } else {
+        toast.error(result.message || "Failed to analyze entry");
+      }
     } catch (error) {
       console.error("Error requesting analysis:", error);
       toast.error("Failed to analyze entry. Please try again.");
@@ -71,6 +87,70 @@ export function JournalAnalysis({
       setIsAnalysisRequested(false);
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <h3 className="text-lg font-medium">Entry Analysis</h3>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
+              <div className="h-16 bg-gray-200 rounded"></div>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              Analyzing your entry...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // No analysis available
+  if (!analysis) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <h3 className="text-lg font-medium">Entry Analysis</h3>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                <Zap className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">No Analysis Yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Click below to analyze the emotional content of this entry
+              </p>
+              <Button
+                onClick={handleAnalysisRequest}
+                className="flex items-center gap-2"
+                disabled={isAnalysisRequested}
+              >
+                <Zap className="h-4 w-4" />
+                {isAnalysisRequested ? "Analyzing..." : "Analyze Entry"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Analysis available
+  const moodColor = getMoodColor(analysis.mood, analysis.negative);
+  const moodLabel =
+    analysis.mood.charAt(0).toUpperCase() +
+    analysis.mood.slice(1).toLowerCase();
 
   return (
     <Card>

@@ -1,41 +1,18 @@
-import { z } from "zod";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { AIMessage } from "@langchain/core/messages";
+import { RunnableLambda } from "@langchain/core/runnables";
 
-export const JournalAnalysisSchema = z.object({
-  summary: z
-    .string()
-    .describe("A concise summary of the journal entry content"),
-  mood: z
-    .enum(["HAPPY", "SAD", "ANGRY", "NEUTRAL", "EXCITED", "CALM"])
-    .describe("The primary mood detected in the entry"),
-  negative: z.boolean().describe("Whether the overall sentiment is negative"),
-  moodScore: z
-    .number()
-    .min(0)
-    .max(100)
-    .describe(
-      "Overall mood score from 0 (very negative) to 100 (very positive)"
-    ),
-  positivePercentage: z
-    .number()
-    .min(0)
-    .max(100)
-    .describe("Percentage of positive emotions in the text"),
-  neutralPercentage: z
-    .number()
-    .min(0)
-    .max(100)
-    .describe("Percentage of neutral emotions in the text"),
-  negativePercentage: z
-    .number()
-    .min(0)
-    .max(100)
-    .describe("Percentage of negative emotions in the text"),
-});
-
-export type JournalAnalysisResult = z.infer<typeof JournalAnalysisSchema>;
+export interface JournalAnalysisResult {
+  summary: string;
+  mood: "HAPPY" | "SAD" | "ANGRY" | "NEUTRAL" | "EXCITED" | "CALM";
+  negative: boolean;
+  moodScore: number;
+  positivePercentage: number;
+  neutralPercentage: number;
+  negativePercentage: number;
+}
 
 function initializeLLM() {
   const useOpenAI =
@@ -49,31 +26,126 @@ function initializeLLM() {
     });
   } else {
     return new ChatOllama({
-      baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
       model: process.env.OLLAMA_MODEL || "llama3.2:latest",
       temperature: 0.3,
     });
   }
 }
 
-const analysisPrompt = ChatPromptTemplate.fromTemplate(`
-You are an expert AI psychologist analyzing a personal journal entry. 
+const analysisSchema = `{{
+  "summary": "string - A concise summary of the journal entry content",
+  "mood": "string - One of: HAPPY, SAD, ANGRY, NEUTRAL, EXCITED, CALM",
+  "negative": "boolean - Whether the overall sentiment is negative",
+  "moodScore": "number - Overall mood score from 0 (very negative) to 100 (very positive)",
+  "positivePercentage": "number - Percentage of positive emotions (0-100)",
+  "neutralPercentage": "number - Percentage of neutral emotions (0-100)",
+  "negativePercentage": "number - Percentage of negative emotions (0-100)"
+}}`;
+
+const analysisPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    `You are an expert AI psychologist analyzing a personal journal entry.
 Your task is to analyze the emotional content, mood, and sentiment of the provided text.
 
-Please analyze the following journal entry and provide a structured response:
+Output your answer as JSON that matches the given schema: \`\`\`json
+${analysisSchema}
+\`\`\`
 
-Journal Entry:
-{content}
+Make sure to wrap the answer in \`\`\`json and \`\`\` tags. Do not add any explanation or extra text.
 
-Instructions:
-1. Provide a concise summary (2-3 sentences) of the main themes and events
-2. Identify the primary mood from: HAPPY, SAD, ANGRY, NEUTRAL, EXCITED, CALM
-3. Determine if the overall sentiment is negative (true/false)
-4. Rate the overall mood on a scale of 0-100 (0 = very negative, 50 = neutral, 100 = very positive)
-5. Estimate percentages for positive, neutral, and negative emotions (must sum to 100)
+Example:
+\`\`\`json
+{{
+  "summary": "Today was a productive and positive day. The author completed important tasks and felt accomplished.",
+  "mood": "HAPPY",
+  "negative": false,
+  "moodScore": 85,
+  "positivePercentage": 70,
+  "neutralPercentage": 20,
+  "negativePercentage": 10
+}}
+\`\`\``,
+  ],
+  ["human", "{content}"],
+]);
 
-Be empathetic, accurate, and focus on the emotional undertones rather than just surface-level content.
-`);
+/**
+ * Custom extractor
+ * Extracts JSON content from a string where
+ * JSON is embedded between ```json and ``` tags.
+ */
+const extractAnalysisJson = (output: AIMessage): JournalAnalysisResult => {
+  const text = output.content as string;
+
+  // Define the regular expression pattern to match JSON blocks
+  const pattern = /```json([\s\S]*?)```/g;
+
+  // Find all non-overlapping matches of the pattern in the string
+  const matches = text.match(pattern);
+
+  // Process each match, attempting to parse it as JSON
+  try {
+    if (matches && matches.length > 0) {
+      // Remove the markdown code block syntax to isolate the JSON string
+      let jsonStr = matches[0].replace(/```json|```/g, "").trim();
+
+      // If JSON doesn't start with {, wrap it in curly braces
+      if (!jsonStr.startsWith("{")) {
+        jsonStr = `{${jsonStr}}`;
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      // Validate and normalize the response
+      const result: JournalAnalysisResult = {
+        summary: parsed.summary || "Unable to analyze the entry content.",
+        mood: ["HAPPY", "SAD", "ANGRY", "NEUTRAL", "EXCITED", "CALM"].includes(
+          parsed.mood
+        )
+          ? parsed.mood
+          : "NEUTRAL",
+        negative: Boolean(parsed.negative),
+        moodScore: Math.max(0, Math.min(100, Number(parsed.moodScore) || 50)),
+        positivePercentage: Math.max(
+          0,
+          Math.min(100, Number(parsed.positivePercentage) || 33)
+        ),
+        neutralPercentage: Math.max(
+          0,
+          Math.min(100, Number(parsed.neutralPercentage) || 34)
+        ),
+        negativePercentage: Math.max(
+          0,
+          Math.min(100, Number(parsed.negativePercentage) || 33)
+        ),
+      };
+
+      const totalPercentage =
+        result.positivePercentage +
+        result.neutralPercentage +
+        result.negativePercentage;
+      if (totalPercentage !== 100) {
+        const factor = 100 / totalPercentage;
+        result.positivePercentage = Math.round(
+          result.positivePercentage * factor
+        );
+        result.neutralPercentage = Math.round(
+          result.neutralPercentage * factor
+        );
+        result.negativePercentage =
+          100 - result.positivePercentage - result.neutralPercentage;
+      }
+
+      return result;
+    } else {
+      throw new Error("No JSON block found in output");
+    }
+  } catch {
+    console.error("Failed to parse JSON from LLM output:", text);
+    throw new Error(`Failed to parse: ${text}`);
+  }
+};
 
 export async function analyzeJournalEntry(
   content: string
@@ -85,30 +157,13 @@ export async function analyzeJournalEntry(
 
     const llm = initializeLLM();
 
-    const structuredLlm = llm.withStructuredOutput(JournalAnalysisSchema, {
-      name: "journal_analysis",
-    });
-
-    const chain = analysisPrompt.pipe(structuredLlm);
+    const chain = analysisPrompt
+      .pipe(llm)
+      .pipe(new RunnableLambda({ func: extractAnalysisJson }));
 
     const result = await chain.invoke({
       content: content.trim(),
     });
-
-    const totalPercentage =
-      result.positivePercentage +
-      result.neutralPercentage +
-      result.negativePercentage;
-
-    if (totalPercentage !== 100) {
-      const factor = 100 / totalPercentage;
-      result.positivePercentage = Math.round(
-        result.positivePercentage * factor
-      );
-      result.neutralPercentage = Math.round(result.neutralPercentage * factor);
-      result.negativePercentage =
-        100 - result.positivePercentage - result.neutralPercentage;
-    }
 
     return result;
   } catch (error) {
@@ -126,13 +181,52 @@ export async function analyzeJournalEntry(
   }
 }
 
-const InsightsSchema = z.object({
-  insights: z
-    .string()
-    .describe(
-      "2-3 brief, encouraging insights or suggestions for the user based on their journal analysis"
-    ),
-});
+// Custom extractor for insights
+const extractInsightsJson = (output: AIMessage): string => {
+  const text = output.content as string;
+
+  // Try to extract JSON first
+  const jsonPattern = /```json([\s\S]*?)```/g;
+  const matches = text.match(jsonPattern);
+
+  if (matches && matches.length > 0) {
+    try {
+      let jsonStr = matches[0].replace(/```json|```/g, "").trim();
+
+      // If JSON doesn't start with {, wrap it in curly braces
+      if (!jsonStr.startsWith("{")) {
+        jsonStr = `{${jsonStr}}`;
+      }
+
+      const parsed = JSON.parse(jsonStr);
+      return parsed.insights || text;
+    } catch {
+      // If JSON parsing fails, return the original text
+      return text;
+    }
+  }
+
+  // If no JSON found, return the text as is
+  return text;
+};
+
+const insightPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    `You are a helpful AI life coach. Based on the following journal analysis data, provide 2-3 brief, encouraging insights or suggestions for the user.
+
+Provide practical, positive advice focusing on patterns, emotional well-being, and personal growth.
+Keep it concise and encouraging (2-3 sentences maximum).
+
+You can either respond in plain text or as JSON:
+\`\`\`json
+{{
+  "insights": "Your insights here..."
+}}
+\`\`\``,
+  ],
+  ["human", "{analysisData}"],
+]);
 
 export async function getJournalInsights(
   analyses: JournalAnalysisResult[]
@@ -144,19 +238,9 @@ export async function getJournalInsights(
 
     const llm = initializeLLM();
 
-    const structuredLlm = llm.withStructuredOutput(InsightsSchema, {
-      name: "journal_insights",
-    });
-
-    const insightPrompt = ChatPromptTemplate.fromTemplate(`
-You are a helpful AI life coach. Based on the following journal analysis data, provide 2-3 brief, encouraging insights or suggestions for the user.
-
-Analysis Data:
-{analysisData}
-
-Provide practical, positive advice focusing on patterns, emotional well-being, and personal growth.
-Keep it concise and encouraging (2-3 sentences maximum).
-`);
+    const chain = insightPrompt
+      .pipe(llm)
+      .pipe(new RunnableLambda({ func: extractInsightsJson }));
 
     const analysisData = analyses
       .map(
@@ -167,11 +251,11 @@ Keep it concise and encouraging (2-3 sentences maximum).
       )
       .join("\n");
 
-    const result = await insightPrompt.pipe(structuredLlm).invoke({
+    const result = await chain.invoke({
       analysisData,
     });
 
-    return result.insights || "Keep up the great work with your journaling!";
+    return result || "Keep up the great work with your journaling!";
   } catch (error) {
     console.error("Error generating insights:", error);
     return "Keep up the great work with your journaling! Regular reflection is a powerful tool for personal growth.";
