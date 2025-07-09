@@ -70,34 +70,23 @@ Example:
   ["human", "{content}"],
 ]);
 
-/**
- * Custom extractor
- * Extracts JSON content from a string where
- * JSON is embedded between ```json and ``` tags.
- */
 const extractAnalysisJson = (output: AIMessage): JournalAnalysisResult => {
   const text = output.content as string;
 
-  // Define the regular expression pattern to match JSON blocks
   const pattern = /```json([\s\S]*?)```/g;
 
-  // Find all non-overlapping matches of the pattern in the string
   const matches = text.match(pattern);
 
-  // Process each match, attempting to parse it as JSON
   try {
     if (matches && matches.length > 0) {
-      // Remove the markdown code block syntax to isolate the JSON string
       let jsonStr = matches[0].replace(/```json|```/g, "").trim();
 
-      // If JSON doesn't start with {, wrap it in curly braces
       if (!jsonStr.startsWith("{")) {
         jsonStr = `{${jsonStr}}`;
       }
 
       const parsed = JSON.parse(jsonStr);
 
-      // Validate and normalize the response
       const result: JournalAnalysisResult = {
         summary: parsed.summary || "Unable to analyze the entry content.",
         mood: ["HAPPY", "SAD", "ANGRY", "NEUTRAL", "EXCITED", "CALM"].includes(
@@ -181,11 +170,9 @@ export async function analyzeJournalEntry(
   }
 }
 
-// Custom extractor for insights
 const extractInsightsJson = (output: AIMessage): string => {
   const text = output.content as string;
 
-  // Try to extract JSON first
   const jsonPattern = /```json([\s\S]*?)```/g;
   const matches = text.match(jsonPattern);
 
@@ -193,7 +180,6 @@ const extractInsightsJson = (output: AIMessage): string => {
     try {
       let jsonStr = matches[0].replace(/```json|```/g, "").trim();
 
-      // If JSON doesn't start with {, wrap it in curly braces
       if (!jsonStr.startsWith("{")) {
         jsonStr = `{${jsonStr}}`;
       }
@@ -201,12 +187,10 @@ const extractInsightsJson = (output: AIMessage): string => {
       const parsed = JSON.parse(jsonStr);
       return parsed.insights || text;
     } catch {
-      // If JSON parsing fails, return the original text
       return text;
     }
   }
 
-  // If no JSON found, return the text as is
   return text;
 };
 
@@ -262,7 +246,6 @@ export async function getJournalInsights(
   }
 }
 
-// AI Query handler
 const queryPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
@@ -306,7 +289,6 @@ export async function handleJournalQuery(
       return "You haven't written any journal entries yet! Start journaling to get personalized insights and answers to your questions.";
     }
 
-    // Prepare journal context (last 10 entries to avoid token limits)
     const recentEntries = entries.slice(0, 10);
     const journalContext = recentEntries
       .map((entry, index) => {

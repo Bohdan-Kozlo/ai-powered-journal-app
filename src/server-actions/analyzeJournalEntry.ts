@@ -19,7 +19,6 @@ export async function analyzeJournalEntryAction(
 
     const analysisResult = await analyzeJournalEntry(content);
 
-    // Save analysis to database
     const analysis = await createJournalAnalysis(entryId, analysisResult);
 
     if (!analysis) {

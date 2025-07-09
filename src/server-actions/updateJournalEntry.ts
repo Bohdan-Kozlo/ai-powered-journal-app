@@ -18,7 +18,6 @@ export async function updateJournalEntry(
       };
     }
 
-    // Check if entry exists and belongs to user
     const existingEntry = await prisma.journalEntry.findUnique({
       where: {
         id: entryId,
@@ -34,7 +33,6 @@ export async function updateJournalEntry(
       };
     }
 
-    // Update the entry
     const updatedEntry = await prisma.journalEntry.update({
       where: {
         id: entryId,

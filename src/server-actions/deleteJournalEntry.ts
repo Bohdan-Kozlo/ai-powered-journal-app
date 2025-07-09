@@ -17,7 +17,6 @@ export async function deleteJournalEntry(
       };
     }
 
-    // Check if entry exists and belongs to user
     const existingEntry = await prisma.journalEntry.findUnique({
       where: {
         id: entryId,
@@ -33,7 +32,6 @@ export async function deleteJournalEntry(
       };
     }
 
-    // Delete the entry (this will cascade delete the analysis)
     await prisma.journalEntry.delete({
       where: {
         id: entryId,

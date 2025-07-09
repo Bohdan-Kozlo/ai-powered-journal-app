@@ -35,7 +35,6 @@ export default function JournalEntryPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch journal entry on component mount (only fetch entry, not analysis)
   useEffect(() => {
     const fetchEntry = async () => {
       try {
@@ -65,7 +64,6 @@ export default function JournalEntryPage() {
     }
   }, [entryId]);
 
-  // Separate effect for auto-analysis (runs only after entry is loaded)
   useEffect(() => {
     const analyze = async () => {
       if (entry && !entry.journalAnalysis && entry.content.trim().length > 0) {
