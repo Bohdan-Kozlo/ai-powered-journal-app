@@ -35,7 +35,7 @@ export default function JournalEntryPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch journal entry on component mount
+  // Fetch journal entry on component mount (only fetch entry, not analysis)
   useEffect(() => {
     const fetchEntry = async () => {
       try {
@@ -47,33 +47,6 @@ export default function JournalEntryPage() {
         if (result.success && result.data) {
           const entryData = result.data as unknown as JournalEntry;
           setEntry(entryData);
-
-          // Auto-analyze if no analysis exists
-          if (
-            !entryData.journalAnalysis &&
-            entryData.content.trim().length > 0
-          ) {
-            setIsAnalyzing(true);
-            try {
-              const analysisResult = await analyzeJournalEntryAction(
-                entryId,
-                entryData.content
-              );
-              if (analysisResult.success && analysisResult.data) {
-                const analysisData =
-                  analysisResult.data as unknown as JournalAnalysisData;
-                setEntry((prev) =>
-                  prev ? { ...prev, journalAnalysis: analysisData } : null
-                );
-                toast.success("Entry analyzed successfully!");
-              }
-            } catch (error) {
-              console.error("Auto-analysis failed:", error);
-              toast.error("Failed to analyze entry");
-            } finally {
-              setIsAnalyzing(false);
-            }
-          }
         } else {
           setError(result.message || "Failed to load journal entry");
           toast.error(result.message || "Failed to load journal entry");
@@ -91,6 +64,36 @@ export default function JournalEntryPage() {
       fetchEntry();
     }
   }, [entryId]);
+
+  // Separate effect for auto-analysis (runs only after entry is loaded)
+  useEffect(() => {
+    const analyze = async () => {
+      if (entry && !entry.journalAnalysis && entry.content.trim().length > 0) {
+        setIsAnalyzing(true);
+        try {
+          const analysisResult = await analyzeJournalEntryAction(
+            entryId,
+            entry.content
+          );
+          if (analysisResult.success && analysisResult.data) {
+            const analysisData =
+              analysisResult.data as unknown as JournalAnalysisData;
+            setEntry((prev) =>
+              prev ? { ...prev, journalAnalysis: analysisData } : null
+            );
+            toast.success("Entry analyzed successfully!");
+          }
+        } catch (error) {
+          console.error("Auto-analysis failed:", error);
+          toast.error("Failed to analyze entry");
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+    };
+    analyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry, entryId]);
 
   const handleSaveContent = async (newContent: string) => {
     try {

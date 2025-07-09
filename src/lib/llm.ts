@@ -261,3 +261,88 @@ export async function getJournalInsights(
     return "Keep up the great work with your journaling! Regular reflection is a powerful tool for personal growth.";
   }
 }
+
+// AI Query handler
+const queryPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    `You are a helpful AI assistant specializing in journal analysis and personal reflection. 
+You have access to the user's journal entries and can help them understand patterns, emotions, and insights from their writing.
+
+Based on the provided journal entries, please answer the user's question in a helpful, encouraging, and insightful way.
+Be specific when referencing entries, but maintain privacy and respect.
+
+Keep responses conversational and supportive, focusing on growth and self-awareness.
+
+Journal Entries:
+{journalContext}`,
+  ],
+  ["human", "{query}"],
+]);
+
+const extractQueryResponse = (output: AIMessage): string => {
+  const text = output.content as string;
+  return text.trim();
+};
+
+export async function handleJournalQuery(
+  query: string,
+  entries: Array<{
+    id: string;
+    content: string;
+    createdAt: string | Date;
+    journalAnalysis?: {
+      summary?: string;
+      mood?: string;
+    } | null;
+  }>
+): Promise<string> {
+  try {
+    if (!query || query.trim().length === 0) {
+      return "Please ask me a question about your journal entries.";
+    }
+
+    if (entries.length === 0) {
+      return "You haven't written any journal entries yet! Start journaling to get personalized insights and answers to your questions.";
+    }
+
+    // Prepare journal context (last 10 entries to avoid token limits)
+    const recentEntries = entries.slice(0, 10);
+    const journalContext = recentEntries
+      .map((entry, index) => {
+        const date = new Date(entry.createdAt).toLocaleDateString();
+        const summary =
+          entry.journalAnalysis?.summary || entry.content.slice(0, 100) + "...";
+        const mood = entry.journalAnalysis?.mood || "Unknown";
+
+        return `Entry ${index + 1} (${date}):
+Mood: ${mood}
+Summary: ${summary}
+Content: ${entry.content.slice(0, 200)}${
+          entry.content.length > 200 ? "..." : ""
+        }
+
+---`;
+      })
+      .join("\n");
+
+    const llm = initializeLLM();
+
+    const chain = queryPrompt
+      .pipe(llm)
+      .pipe(new RunnableLambda({ func: extractQueryResponse }));
+
+    const response = await chain.invoke({
+      query: query.trim(),
+      journalContext,
+    });
+
+    return (
+      response ||
+      "I'm sorry, I couldn't process your question at the moment. Please try again."
+    );
+  } catch (error) {
+    console.error("Error handling journal query:", error);
+    return "I'm sorry, I couldn't process your question at the moment. Please try again.";
+  }
+}
