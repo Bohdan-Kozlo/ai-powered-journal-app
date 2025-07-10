@@ -2,8 +2,9 @@ import { getUserByClerkId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { JournalAnalysisResult } from "@/lib/llm";
+import { cache } from "react";
 
-export async function getJournalEntries() {
+export const getJournalEntries = cache(async function getJournalEntries() {
   try {
     const user = await getUserByClerkId();
     if (!user) {
@@ -27,7 +28,7 @@ export async function getJournalEntries() {
     console.error("Error fetching journal entries:", error);
     return null;
   }
-}
+});
 
 export async function createJournalEntry(
   data: Omit<
@@ -55,7 +56,9 @@ export async function createJournalEntry(
   }
 }
 
-export async function journalEntryById(entryId: string) {
+export const journalEntryById = cache(async function journalEntryById(
+  entryId: string
+) {
   const user = await getUserByClerkId();
   if (!user) {
     return null;
@@ -77,7 +80,7 @@ export async function journalEntryById(entryId: string) {
     console.error("Error fetching journal entry by ID:", error);
     return null;
   }
-}
+});
 
 export async function createJournalAnalysis(
   entryId: string,

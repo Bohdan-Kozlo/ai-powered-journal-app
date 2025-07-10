@@ -90,7 +90,6 @@ export default function JournalEntryPage() {
       }
     };
     analyze();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry, entryId]);
 
   const handleSaveContent = async (newContent: string) => {

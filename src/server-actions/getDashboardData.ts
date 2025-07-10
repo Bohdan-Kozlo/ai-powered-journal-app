@@ -2,9 +2,10 @@
 
 import { getJournalEntries } from "@/data/journal-entry";
 import { ActionResponse } from "@/lib/types";
+import { cache } from "react";
 
-export async function getDashboardData(
-  limit: number = 5
+export const getDashboardData = cache(async function getDashboardData(
+  limit: number = 3
 ): Promise<ActionResponse> {
   try {
     const entries = await getJournalEntries();
@@ -17,8 +18,10 @@ export async function getDashboardData(
       };
     }
 
+    // Get the most recent entries
     const recentEntries = entries.slice(0, limit);
 
+    // Count entries with analysis
     const entriesWithAnalysis = entries.filter(
       (entry) => entry.journalAnalysis
     );
@@ -40,4 +43,4 @@ export async function getDashboardData(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
+});

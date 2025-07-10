@@ -2,8 +2,9 @@
 
 import { journalEntryById } from "@/data/journal-entry";
 import { ActionResponse } from "@/lib/types";
+import { cache } from "react";
 
-export async function getJournalEntry(
+export const getJournalEntry = cache(async function getJournalEntry(
   entryId: string
 ): Promise<ActionResponse> {
   try {
@@ -30,4 +31,4 @@ export async function getJournalEntry(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
+});
